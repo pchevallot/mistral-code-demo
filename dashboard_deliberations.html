@@ -253,9 +253,14 @@
         // Charger et traiter les données CSV
         async function loadCSV() {
             try {
-                const response = await fetch('deliberations_te44.csv');
+                // Essayer d'abord avec le chemin relatif
+                let response = await fetch('deliberations_te44.csv');
                 if (!response.ok) {
-                    throw new Error('Fichier CSV non trouvé');
+                    // Si échec, essayer avec le chemin GitHub raw
+                    response = await fetch('https://raw.githubusercontent.com/pchevallot/mistral-code-demo/main/deliberations_te44.csv');
+                    if (!response.ok) {
+                        throw new Error('Fichier CSV non trouvé');
+                    }
                 }
                 const csvText = await response.text();
                 return parseCSV(csvText);
@@ -323,9 +328,21 @@
             const anneeCounts = {};
             data.forEach(entry => {
                 const date = entry.delib_date;
-                if (date) {
-                    const year = date.split('-')[0];
-                    if (year) {
+                if (date && date.trim() !== '') {
+                    // Extraire l'année - gérer différents formats
+                    let year = '';
+                    if (date.includes('-')) {
+                        year = date.split('-')[0];
+                    } else if (date.includes('/')) {
+                        year = date.split('/')[2];
+                    } else {
+                        // Essayer de parser comme date ISO
+                        const dateObj = new Date(date);
+                        if (!isNaN(dateObj.getTime())) {
+                            year = dateObj.getFullYear().toString();
+                        }
+                    }
+                    if (year && year.length === 4 && !isNaN(year)) {
                         anneeCounts[year] = (anneeCounts[year] || 0) + 1;
                     }
                 }
@@ -476,7 +493,10 @@
         // Charger les données et créer les charts
         async function init() {
             const data = await loadCSV();
+            console.log('Données chargées:', data.length, 'entrées');
             const processedData = processData(data);
+            console.log('Années trouvées:', processedData.anneeCounts);
+            console.log('Matieres trouvées:', processedData.matiereCounts.slice(0, 5));
             createCharts(processedData);
         }
 
